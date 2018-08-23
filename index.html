@@ -27,10 +27,12 @@
     </div>
     <div class="container pt-1">
         <div class="row">
-            <div class="col">
+            <div class="col-sm">
+                <span>Original Text</span>
                 <div id="originalEditor" class="editor"></div>
             </div>
-            <div class="col">
+            <div class="col-sm">
+                <span>Modified Text</span>
                 <div id="modifiedEditor" class="editor"></div>
             </div>
         </div>
@@ -57,28 +59,46 @@
         var originalModel;
         var modifiedModel;
 
+        var ORIGINAL_TEXT = "originalText";
+        var MODIFIED_TEXT = "modifiedText";
+        var INLINE_DIFF = "inlineDiff";
+
         require.config({ paths: { 'vs': './lib/js/vs' } });
         require(['vs/editor/editor.main'], function () {
 
-            // Editors
-            var editorOptions = {
-                value: "",
-                minimap: {
-                    enabled: false
-                },
-                parameterHints: false
+            // Load from storage
+            inlineDiff = load(INLINE_DIFF) === "true";
+            inlineDiffCheckbox.checked = inlineDiff;
+
+            var originalText = load(ORIGINAL_TEXT);
+            var modifiedText = load(MODIFIED_TEXT);
+            if (originalText && modifiedText) {
+                genModels(originalText, modifiedText);
+                diffEditorInit();
             }
 
-            var originalEditor = monaco.editor.create(originalEditorContainer, editorOptions);
-            var modifiedEditor = monaco.editor.create(modifiedEditorContainer, editorOptions);
+            // Editors
+            function getEditorOptions(value) {
+                return {
+                    value: value || "",
+                    minimap: {
+                        enabled: false
+                    },
+                    parameterHints: false
+                }
+            }
+
+            var originalEditor = monaco.editor.create(originalEditorContainer, getEditorOptions(originalText));
+            var modifiedEditor = monaco.editor.create(modifiedEditorContainer, getEditorOptions(modifiedText));
 
             // Inline Diff Checkbox
             inlineDiffCheckbox.onclick = function () {
                 inlineDiff = inlineDiffCheckbox.checked;
+                save(INLINE_DIFF, inlineDiff);
+
                 diffEditor.dispose();
                 diffEditorInitialized = false;
                 diffEditorInit();
-                resizeDiffEditor(diffEditor);
             }
 
             // Find Difference Button
@@ -86,15 +106,20 @@
                 var originalText = originalEditor.getValue();
                 var modifiedText = modifiedEditor.getValue();
 
-                originalModel = monaco.editor.createModel(originalText, "text/plain");
-                modifiedModel = monaco.editor.createModel(modifiedText, "text/plain");
+                save(ORIGINAL_TEXT, originalText);
+                save(MODIFIED_TEXT, modifiedText);
+
+                genModels(originalText, modifiedText);
 
                 diffEditorInit();
-                resizeDiffEditor(diffEditor);
             }
 
             window.addEventListener("optimizedResize", function () {
-                diffEditor.layout();
+                if (diffEditor) {
+                    diffEditor.layout();
+                }
+                originalEditor.layout();
+                modifiedEditor.layout();
             });
         });
 
@@ -113,6 +138,12 @@
                 original: originalModel,
                 modified: modifiedModel
             });
+            resizeDiffEditor(diffEditor);
+        }
+
+        function genModels(originalText, modifiedText) {
+            originalModel = monaco.editor.createModel(originalText, "text/plain");
+            modifiedModel = monaco.editor.createModel(modifiedText, "text/plain");
         }
 
         function resizeDiffEditor(diffEditor) {
@@ -137,6 +168,14 @@
 
         function showResult() {
             resultContainer.style.display = "block"
+        }
+
+        function save(name, value) {
+            localStorage.setItem(name, value);
+        }
+
+        function load(name) {
+            return localStorage.getItem(name)
         }
     </script>
 </body>
