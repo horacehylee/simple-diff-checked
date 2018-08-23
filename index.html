@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <link rel="stylesheet" href="./lib/css/bootstrap.min.css" />
+    <style>
+        .editor {
+            width: 100%;
+            height: 500px;
+            border: 1px solid grey
+        }
+    </style>
+</head>
+
+<body>
+    <h2 class="d-flex justify-content-center pt-2">Simple Diff Checker</h2>
+    <div id="resultContainer" class="container pb-2" style="display: none;">
+        <div class="d-flex justify-content-end">
+            <div class="pr-1">
+                <input type="checkbox" id="inlineDiff" name="inlineDiff" value="inlineDiff">
+            </div>
+            <label for="inlineDiff">Inline diff</label>
+        </div>
+        <div id="diffContainer" style="border:1px solid grey"></div>
+    </div>
+    <div class="container pt-1">
+        <div class="row">
+            <div class="col">
+                <div id="originalEditor" class="editor"></div>
+            </div>
+            <div class="col">
+                <div id="modifiedEditor" class="editor"></div>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex justify-content-center pt-2 pb-4">
+        <button id="findDifferenceBtn" type="button" class="btn btn-primary">Find Difference</button>
+    </div>
+
+    <script src="./lib/js/vs/loader.js"></script>
+    <script src="./lib/js/polyfill.js"></script>
+    <script src="./lib/js/resize-optimize.js"></script>
+    <script>
+        var resultContainer = document.getElementById("resultContainer");
+        var inlineDiffCheckbox = document.getElementById("inlineDiff");
+        var diffEditorContainer = document.getElementById("diffContainer");
+        var originalEditorContainer = document.getElementById("originalEditor");
+        var modifiedEditorContainer = document.getElementById("modifiedEditor");
+        var findDifferenceBtn = document.getElementById("findDifferenceBtn");
+
+        var diffEditor;
+        var diffEditorInitialized = false;
+        var inlineDiff = false;
+
+        var originalModel;
+        var modifiedModel;
+
+        require.config({ paths: { 'vs': './lib/js/vs' } });
+        require(['vs/editor/editor.main'], function () {
+
+            // Editors
+            var editorOptions = {
+                value: "",
+                minimap: {
+                    enabled: false
+                },
+                parameterHints: false
+            }
+
+            var originalEditor = monaco.editor.create(originalEditorContainer, editorOptions);
+            var modifiedEditor = monaco.editor.create(modifiedEditorContainer, editorOptions);
+
+            // Inline Diff Checkbox
+            inlineDiffCheckbox.onclick = function () {
+                inlineDiff = inlineDiffCheckbox.checked;
+                diffEditor.dispose();
+                diffEditorInitialized = false;
+                diffEditorInit();
+                resizeDiffEditor(diffEditor);
+            }
+
+            // Find Difference Button
+            findDifferenceBtn.onclick = function () {
+                var originalText = originalEditor.getValue();
+                var modifiedText = modifiedEditor.getValue();
+
+                originalModel = monaco.editor.createModel(originalText, "text/plain");
+                modifiedModel = monaco.editor.createModel(modifiedText, "text/plain");
+
+                diffEditorInit();
+                resizeDiffEditor(diffEditor);
+            }
+
+            window.addEventListener("optimizedResize", function () {
+                diffEditor.layout();
+            });
+        });
+
+        function diffEditorInit() {
+            showResult();
+
+            if (!diffEditorInitialized) {
+                diffEditor = monaco.editor.createDiffEditor(diffEditorContainer, {
+                    enableSplitViewResizing: false,
+                    renderSideBySide: !inlineDiff
+                });
+                diffEditorInitialized = true;
+            }
+
+            diffEditor.setModel({
+                original: originalModel,
+                modified: modifiedModel
+            });
+        }
+
+        function resizeDiffEditor(diffEditor) {
+            var contentHeight = getLineCount(diffEditor) * 19;
+            diffEditorContainer.style.height = contentHeight + "px";
+            diffEditor.layout();
+        }
+
+        function getLineCount(diffEditor) {
+            if (!diffEditor.modifiedEditor.viewModel) {
+                return 10;
+            }
+            if (inlineDiff) {
+                return diffEditor.modifiedEditor.viewModel.lines.getViewLineCount() + diffEditor.originalEditor.viewModel.lines.getViewLineCount();
+            } else {
+                return Math.max(
+                    diffEditor.modifiedEditor.viewModel.lines.getViewLineCount(),
+                    diffEditor.originalEditor.viewModel.lines.getViewLineCount()
+                )
+            }
+        }
+
+        function showResult() {
+            resultContainer.style.display = "block"
+        }
+    </script>
+</body>
